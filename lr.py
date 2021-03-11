@@ -135,7 +135,7 @@ def get_features_basis(file_path):
 
 def compute_RMSE(phi, w , y) :
     # Root Mean Squared Error
-    return np.sqrt(np.sum((1e4 * phi @ w - y) ** 2) / len(y))
+    return float(torch.sqrt(torch.sum((1e4 * phi @ w - y) ** 2) / len(y)))
 
 def generate_output(phi_test, w):
     # writes a file (output.csv) containing target variables in required format for Submission.
@@ -143,8 +143,8 @@ def generate_output(phi_test, w):
     indices = list(range(len(preds)))
     data = np.array([preds, indices]).T
     headers = ["Id", "Expected"]
-    pd.DataFrame(data=data, columns=headers).to_csv("output.csv")    
-    
+    pd.DataFrame(data=data, columns=headers).to_csv("output.csv")
+
 def closed_soln(phi, y):
     # Function returns the solution w for Xw=y.
     return np.linalg.pinv(phi).dot(y)
@@ -161,7 +161,6 @@ def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03):
     y = torch.from_numpy(y).cuda(0)
     phi_dev = torch.from_numpy(phi_dev).cuda(0)
     y_dev = torch.from_numpy(y_dev).cuda(0)
-    torch.from_numpy()
     rmse_tr = [compute_RMSE(phi, w, y)]
     rmse_dv = [compute_RMSE(phi_dev, w, y_dev)]
     y_prime = y / 1e4
@@ -191,7 +190,7 @@ def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03):
                 print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
     plt.plot(rmse_tr)
     plt.plot(rmse_dv)
-    return w
+    return w_prime
 
 def sgd(phi, y, phi_dev, y_dev) :
     # Implement stochastic gradient_descent using Mean Squared Error Loss
