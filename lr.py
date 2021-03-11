@@ -141,19 +141,17 @@ def generate_output(phi_test, w):
     preds = 1e4*phi_test@w
     indices = list(range(len(preds)))
     data = np.array([preds, indices]).T
-    headers = ["Id, target"]
+    headers = ["Id", "Expected"]
     pd.DataFrame(data=data, columns=headers).to_csv("output.csv")    
     
 def closed_soln(phi, y):
     # Function returns the solution w for Xw=y.
     return np.linalg.pinv(phi).dot(y)
     
-def gradient_descent(phi, y, phi_dev, y_dev) :
+def gradient_descent(phi, y, phi_dev, y_dev, epochs=100000, lr=0.03) :
     # Implement gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
-    lr = 0.03
-    epochs = 100000
     np.random.seed(123)
     w = np.random.randn(phi.shape[1])
     n = phi.shape[0]
