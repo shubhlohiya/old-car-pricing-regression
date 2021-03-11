@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import torch
 
 # Global variables
 phase = "train"  # phase can be set to either "train" or "eval"
@@ -148,7 +149,7 @@ def closed_soln(phi, y):
     # Function returns the solution w for Xw=y.
     return np.linalg.pinv(phi).dot(y)
     
-def gradient_descent(phi, y, phi_dev, y_dev) :
+def gradient_descent(phi, y, phi_dev, y_dev, p=5) :
     # Implement gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
@@ -157,18 +158,39 @@ def gradient_descent(phi, y, phi_dev, y_dev) :
     np.random.seed(123)
     w = np.random.randn(phi.shape[1])
     n = phi.shape[0]
+    w = torch.from_numpy(w).cuda(0)
+    phi = torch.from_numpy(phi).cuda(0)
+    y = torch.from_numpy(y).cuda(0)
+    phi_dev = torch.from_numpy(phi_dev).cuda(0)
+    y_dev = torch.from_numpy(y_dev).cuda(0)
+    torch.from_numpy()
     rmse_tr = [compute_RMSE(phi, w, y)]
     rmse_dv = [compute_RMSE(phi_dev, w, y_dev)]
     y_prime = y / 1e4
+
+    w_prime = w.clone()
+
     print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
-    for i in range(epochs):
+    i,j,v=0,0,np.inf
+
+    while j<p:
         y_hat = phi @ w
-        grad = 2 * phi.T @ (y_hat - y_prime) / n
+        grad = 2 * phi.t() @ (y_hat - y_prime) / n
         w = w - lr * grad
-        if (i + 1) % 1000 == 0:
-            rmse_tr.append(compute_RMSE(phi, w, y))
-            rmse_dv.append(compute_RMSE(phi_dev, w, y_dev))
-            print(f"Epoch {i+1}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+        i+=1
+        if i % 100 == 0:
+
+            v_new = compute_RMSE(phi_dev, w, y_dev)
+            if v_new < v:
+                j=0
+                w_prime = w.clone()
+                v = v_new
+            else:
+                j+=1
+            if i % 1000 ==0:
+                rmse_tr.append(compute_RMSE(phi, w, y))
+                rmse_dv.append(v_new)
+                print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
     plt.plot(rmse_tr)
     plt.plot(rmse_dv)
     return w
