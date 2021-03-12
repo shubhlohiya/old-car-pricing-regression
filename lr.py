@@ -203,11 +203,11 @@ def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1) :
     i,j,v=0,0,np.inf
     
     while j<p:
-    	for k in range(0,m,bs):
-    		start, end = k*bs, min(m, (k+1)*bs)
-	        y_hat = phi[start:end] @ w
-	        grad = phi[start:end].T @ (y_hat - y_prime[start:end]) / (end-start)
-	        w = w - lr * grad
+        for k in range(0,m,bs):
+            start, end = k*bs, min(m, (k+1)*bs)
+            y_hat = phi[start:end] @ w
+            grad = phi[start:end].T @ (y_hat - y_prime[start:end]) / (end-start)
+            w = w - lr * grad
         i+=1
 
         v_new = compute_RMSE(phi_dev, w, y_dev)
@@ -308,4 +308,4 @@ def main():
     print(rmse_basis)
 
 if __name__ == "__main__":
-	main()
+    main()
