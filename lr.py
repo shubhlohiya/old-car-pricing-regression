@@ -192,11 +192,52 @@ def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03):
     plt.plot(rmse_dv)
     return w_prime
 
-def sgd(phi, y, phi_dev, y_dev) :
+def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1) :
     # Implement stochastic gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
-    return w
+    np.random.seed(123)
+    m = phi.shape[0]
+    n = phi.shape[1]
+    w = np.random.randn(n)
+    w = torch.from_numpy(w).cuda(0)
+    phi = torch.from_numpy(phi).cuda(0)
+    y = torch.from_numpy(y).cuda(0)
+    phi_dev = torch.from_numpy(phi_dev).cuda(0)
+    y_dev = torch.from_numpy(y_dev).cuda(0)
+    rmse_tr = [compute_RMSE(phi, w, y)]
+    rmse_dv = [compute_RMSE(phi_dev, w, y_dev)]
+    y_prime = y / 1e4
+
+    w_prime = w.clone()
+
+    print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+    i,j,v=0,0,np.inf
+
+    while j<p:
+        for k in range(0,m,bs):
+            start, end = k*bs, min(m, (k+1)*bs)
+            y_hat = phi[start:end] @ w
+            grad = phi[start:end].t() @ (y_hat - y_prime[start:end]) / (end-start)
+            w = w - lr * grad
+        i+=1
+
+        v_new = compute_RMSE(phi_dev, w, y_dev)
+        if v_new < v:
+            j=0
+            w_prime = w.clone()
+            v = v_new
+        else:
+            j+=1
+        # if i % 5 == 0:
+        rmse_tr.append(compute_RMSE(phi, w, y))
+        rmse_dv.append(v_new)
+        print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+
+    print("Early Stopping .............. Returning best weights")
+    plt.plot(rmse_tr)
+    plt.plot(rmse_dv)
+    return w_prime
 
 
 def pnorm(phi, y, phi_dev, y_dev, p) :
