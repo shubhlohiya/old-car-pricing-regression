@@ -140,15 +140,15 @@ def generate_output(phi_test, w):
     # writes a file (output.csv) containing target variables in required format for Submission.
     preds = 1e4*phi_test@w
     indices = list(range(len(preds)))
-    data = np.array([preds, indices]).T
+    data = np.array([indices, preds]).T
     headers = ["Id", "Expected"]
-    pd.DataFrame(data=data, columns=headers).to_csv("output.csv")    
+    pd.DataFrame(data=data, columns=headers).to_csv("output.csv", index=False) 
     
 def closed_soln(phi, y):
     # Function returns the solution w for Xw=y.
     return np.linalg.pinv(phi).dot(y)
     
-def gradient_descent(phi, y, phi_dev, y_dev, epochs=100000, lr=0.03) :
+def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03):
     # Implement gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
@@ -158,24 +158,74 @@ def gradient_descent(phi, y, phi_dev, y_dev, epochs=100000, lr=0.03) :
     rmse_tr = [compute_RMSE(phi, w, y)]
     rmse_dv = [compute_RMSE(phi_dev, w, y_dev)]
     y_prime = y / 1e4
+    w_prime = w.copy()
+
     print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
-    for i in range(epochs):
+    i,j,v=0,0,np.inf
+    
+    while j<p:
         y_hat = phi @ w
         grad = 2 * phi.T @ (y_hat - y_prime) / n
         w = w - lr * grad
-        if (i + 1) % 1000 == 0:
-            rmse_tr.append(compute_RMSE(phi, w, y))
-            rmse_dv.append(compute_RMSE(phi_dev, w, y_dev))
-            print(f"Epoch {i+1}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+        i+=1
+        if i % 100 == 0:
+
+            v_new = compute_RMSE(phi_dev, w, y_dev)
+            if v_new < v:
+                j=0
+                w_prime = w.copy()
+                v = v_new
+            else:
+                j+=1
+            if i % 1000 ==0:
+                rmse_tr.append(compute_RMSE(phi, w, y))
+                rmse_dv.append(v_new)
+                print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
     plt.plot(rmse_tr)
     plt.plot(rmse_dv)
-    return w
+    return w_prime
 
-def sgd(phi, y, phi_dev, y_dev) :
+def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1) :
     # Implement stochastic gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
-    return w
+    np.random.seed(123)
+    m = phi.shape[0]
+    n = phi.shape[1]
+    w = np.random.randn(n)
+
+    rmse_tr = [compute_RMSE(phi, w, y)]
+    rmse_dv = [compute_RMSE(phi_dev, w, y_dev)]
+    y_prime = y / 1e4
+    w_prime = w.copy()
+
+    print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+    i,j,v=0,0,np.inf
+    
+    while j<p:
+    	for k in range(0,m,bs):
+    		start, end = k*bs, min(m, (k+1)*bs)
+	        y_hat = phi[start:end] @ w
+	        grad = phi[start:end].T @ (y_hat - y_prime[start:end]) / (end-start)
+	        w = w - lr * grad
+        i+=1
+
+        v_new = compute_RMSE(phi_dev, w, y_dev)
+        if v_new < v:
+            j=0
+            w_prime = w.copy()
+            v = v_new
+        else:
+            j+=1
+        # if i % 5 == 0:
+        rmse_tr.append(compute_RMSE(phi, w, y))
+        rmse_dv.append(v_new)
+        print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+
+    print("Early Stopping .............. Returning best weights")
+    plt.plot(rmse_tr)
+    plt.plot(rmse_dv)
+    return w_prime
 
 
 def pnorm(phi, y, phi_dev, y_dev, p) :
