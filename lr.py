@@ -142,7 +142,9 @@ def generate_output(phi_test, w):
     indices = list(range(len(preds)))
     data = np.array([indices, preds]).T
     headers = ["Id", "Expected"]
-    pd.DataFrame(data=data, columns=headers).to_csv("output.csv", index=False) 
+    df = pd.DataFrame(data=data, columns=headers)
+    df.Id = df.Id.astype(int)
+    df.to_csv("output.csv", index=False)
     
 def closed_soln(phi, y):
     # Function returns the solution w for Xw=y.
