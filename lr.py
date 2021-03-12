@@ -188,6 +188,7 @@ def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03):
                 rmse_tr.append(compute_RMSE(phi, w, y))
                 rmse_dv.append(v_new)
                 print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+    print("Early Stopping .............. Returning best weights")
     plt.plot(rmse_tr)
     plt.plot(rmse_dv)
     return w_prime
@@ -240,51 +241,92 @@ def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1) :
     return w_prime
 
 
-def pnorm(phi, y, phi_dev, y_dev, p) :
-    # Implement gradient_descent with p-norm regularisation using Mean Squared Error Loss
+def pnorm(phi, y, phi_dev, y_dev, l=2, lam=1) :
+    # Implement gradient_descent with p-norm (here, l-norm) regularisation using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
+    # Constraint on l: l > 1
 
-    return w    
+    np.random.seed(123)
+    w = np.random.randn(phi.shape[1])
+    n = phi.shape[0]
+    w = torch.from_numpy(w).cuda(0)
+    phi = torch.from_numpy(phi).cuda(0)
+    y = torch.from_numpy(y).cuda(0)
+    phi_dev = torch.from_numpy(phi_dev).cuda(0)
+    y_dev = torch.from_numpy(y_dev).cuda(0)
+    rmse_tr = [compute_RMSE(phi, w, y)]
+    rmse_dv = [compute_RMSE(phi_dev, w, y_dev)]
+    y_prime = y / 1e4
 
+    w_prime = w.clone()
 
-# def main():
-#     """ 
-#     The following steps will be run in sequence by the autograder.
-#     """
-#     ######## Task 1 #########
-#     phase = "train"
-#     phi, y = get_features('train.csv')
-#     phase = "eval"
-#     phi_dev, y_dev = get_features('dev.csv')
-#     w1 = closed_soln(phi, y)
-#     w2 = gradient_descent(phi, y, phi_dev, y_dev)
-#     r1 = compute_RMSE(phi_dev, w1, y_dev)
-#     r2 = compute_RMSE(phi_dev, w2, y_dev)
-#     print('1a: ')
-#     print(abs(r1-r2))
-#     w3 = sgd(phi, y, phi_dev, y_dev)
-#     r3 = compute_RMSE(phi_dev, w3, y_dev)
-#     print('1c: ')
-#     print(abs(r2-r3))
+    print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+    i,j,v=0,0,np.inf
 
-#     ######## Task 2 #########
-#     w_p2 = pnorm(phi, y, phi_dev, y_dev, 2)  
-#     w_p4 = pnorm(phi, y, phi_dev, y_dev, 4)  
-#     r_p2 = compute_RMSE(phi_dev, w_p2, y_dev)
-#     r_p4 = compute_RMSE(phi_dev, w_p4, y_dev)
-#     print('2: pnorm2')
-#     print(r_p2)
-#     print('2: pnorm4')
-#     print(r_p4)
+    while j<p:
+        y_hat = phi @ w
+        Wp = np.abs(w)**(l-2)
+        grad = 2*phi.t() @ (y_hat - y_prime) / n + lam*l*(Wp*w)
+        w = w - lr * grad
+        i+=1
+        if i % 100 == 0:
 
-#     ######## Task 3 #########
-#     phase = "train"
-#     phi_basis, y = get_features_basis1('train.csv')
-#     phase = "eval"
-#     phi_dev, y_dev = get_features_basis1('dev.csv')
-#     w_basis = pnorm(phi_basis, y, phi_dev, y_dev, 2)
-#     rmse_basis = compute_RMSE(phi_dev, w_basis, y_dev)
-#     print('Task 3: basis')
-#     print(rmse_basis)
+            v_new = compute_RMSE(phi_dev, w, y_dev)
+            if v_new < v:
+                j=0
+                w_prime = w.clone()
+                v = v_new
+            else:
+                j+=1
+            if i % 1000 ==0:
+                rmse_tr.append(compute_RMSE(phi, w, y))
+                rmse_dv.append(v_new)
+                print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+    print("Early Stopping .............. Returning best weights")
+    plt.plot(rmse_tr)
+    plt.plot(rmse_dv)
+    return w_prime
+    
 
-# main()
+def main():
+    """ 
+    The following steps will be run in sequence by the autograder.
+    """
+    ######## Task 1 #########
+    phase = "train"
+    phi, y = get_features('train.csv')
+    phase = "eval"
+    phi_dev, y_dev = get_features('dev.csv')
+    w1 = closed_soln(phi, y)
+    w2 = gradient_descent(phi, y, phi_dev, y_dev)
+    r1 = compute_RMSE(phi_dev, w1, y_dev)
+    r2 = compute_RMSE(phi_dev, w2, y_dev)
+    print('1a: ')
+    print(abs(r1-r2))
+    w3 = sgd(phi, y, phi_dev, y_dev)
+    r3 = compute_RMSE(phi_dev, w3, y_dev)
+    print('1c: ')
+    print(abs(r2-r3))
+
+    ######## Task 2 #########
+    w_p2 = pnorm(phi, y, phi_dev, y_dev, 2)  
+    w_p4 = pnorm(phi, y, phi_dev, y_dev, 4)  
+    r_p2 = compute_RMSE(phi_dev, w_p2, y_dev)
+    r_p4 = compute_RMSE(phi_dev, w_p4, y_dev)
+    print('2: pnorm2')
+    print(r_p2)
+    print('2: pnorm4')
+    print(r_p4)
+
+    ######## Task 3 #########
+    phase = "train"
+    phi_basis, y = get_features_basis1('train.csv')
+    phase = "eval"
+    phi_dev, y_dev = get_features_basis1('dev.csv')
+    w_basis = pnorm(phi_basis, y, phi_dev, y_dev, 2)
+    rmse_basis = compute_RMSE(phi_dev, w_basis, y_dev)
+    print('Task 3: basis')
+    print(rmse_basis)
+
+if __name__ == "__main__":
+    main()
