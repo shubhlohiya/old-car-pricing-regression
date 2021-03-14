@@ -149,13 +149,16 @@ def closed_soln(phi, y):
     # Function returns the solution w for Xw=y.
     return np.linalg.pinv(phi).dot(y)
 
-def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03, cap=5e5):
+def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03, cap=5e5, bias=False):
     # Implement gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
     np.random.seed(123)
-    w = np.random.randn(phi.shape[1])
     n = phi.shape[0]
+    if bias:
+        phi = np.append(phi, np.ones((n,1)), axis=1)
+        phi_dev = np.append(phi_dev, np.ones((phi_dev.shape[0],1)), axis=1)
+    w = np.random.randn(phi.shape[1])
     w = torch.from_numpy(w).cuda(0)
     phi = torch.from_numpy(phi).cuda(0)
     y = torch.from_numpy(y).cuda(0)
@@ -199,14 +202,19 @@ def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03, cap=5e5):
     plt.plot(rmse_dv)
     return w_prime
 
-def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1, cap=5e5) :
+def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1, cap=5e5, bias=False) :
     # Implement stochastic gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
     np.random.seed(123)
     m = phi.shape[0]
     n = phi.shape[1]
-    w = np.random.randn(n)
+    if bias:
+        phi = np.append(phi, np.ones((m,1)), axis=1)
+        phi_dev = np.append(phi_dev, np.ones((phi_dev.shape[0],1)), axis=1)
+        w = np.random.randn(n+1)
+    else:
+        w = np.random.randn(n)
     w = torch.from_numpy(w).cuda(0)
     phi = torch.from_numpy(phi).cuda(0)
     y = torch.from_numpy(y).cuda(0)
@@ -252,14 +260,17 @@ def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1, cap=5e5) :
     return w_prime
 
 
-def pnorm(phi, y, phi_dev, y_dev, p=5, lr=0.03, l=2, lam=1, cap=5e5) :
+def pnorm(phi, y, phi_dev, y_dev, p=5, lr=0.03, l=2, lam=1, cap=5e5, bias=False) :
     # Implement gradient_descent with p-norm (here, l-norm) regularisation using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
     # Constraint on l: l > 1
 
     np.random.seed(123)
-    w = np.random.randn(phi.shape[1])
     n = phi.shape[0]
+    if bias:
+        phi = np.append(phi, np.ones((n,1)), axis=1)
+        phi_dev = np.append(phi_dev, np.ones((phi_dev.shape[0],1)), axis=1)
+    w = np.random.randn(phi.shape[1])
     w = torch.from_numpy(w).cuda(0)
     phi = torch.from_numpy(phi).cuda(0)
     y = torch.from_numpy(y).cuda(0)
@@ -276,8 +287,10 @@ def pnorm(phi, y, phi_dev, y_dev, p=5, lr=0.03, l=2, lam=1, cap=5e5) :
 
     while j<p:
         y_hat = phi @ w
-        Wp = torch.abs(w)**(l-2)
-        grad = 2*phi.t() @ (y_hat - y_prime) / n + lam*l*(Wp*w)
+        r_grad = l*((torch.abs(w)**(l-2))*w)
+        if bias:
+            r_grad[-1] = 0.
+        grad = 2*phi.t() @ (y_hat - y_prime) / n + lam*r_grad
         w = w - lr * grad
         i+=1
         if i % 100 == 0:
