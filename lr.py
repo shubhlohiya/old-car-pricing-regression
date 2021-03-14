@@ -507,20 +507,20 @@ def main():
     phi, y = get_features('train.csv')
     phase = "eval"
     phi_dev, y_dev = get_features('dev.csv')
-    w1 = closed_soln(phi, y)
-    w2 = gradient_descent(phi, y, phi_dev, y_dev)
+    w1 = closed_soln(phi, y/1e4)
+    w2 = gradient_descent(phi, y, phi_dev, y_dev, lr=0.1)
     r1 = compute_RMSE(phi_dev, w1, y_dev)
     r2 = compute_RMSE(phi_dev, w2, y_dev)
     print('1a: ')
     print(abs(r1-r2))
-    w3 = sgd(phi, y, phi_dev, y_dev)
+    w3 = sgd(phi, y, phi_dev, y_dev, lr=0.01)
     r3 = compute_RMSE(phi_dev, w3, y_dev)
     print('1c: ')
     print(abs(r2-r3))
 
     ######## Task 2 #########
-    w_p2 = pnorm(phi, y, phi_dev, y_dev, 2)  
-    w_p4 = pnorm(phi, y, phi_dev, y_dev, 4)  
+    w_p2 = pnorm(phi, y, phi_dev, y_dev, l=2, lr=0.1, lam=1e-4)  
+    w_p4 = pnorm(phi, y, phi_dev, y_dev, l=4, lr=0.1, lam=1e-10)  
     r_p2 = compute_RMSE(phi_dev, w_p2, y_dev)
     r_p4 = compute_RMSE(phi_dev, w_p4, y_dev)
     print('2: pnorm2')
@@ -530,10 +530,10 @@ def main():
 
     ######## Task 3 #########
     phase = "train"
-    phi_basis, y = get_features_basis1('train.csv')
+    phi_basis, y = get_features_basis('train.csv')
     phase = "eval"
-    phi_dev, y_dev = get_features_basis1('dev.csv')
-    w_basis = pnorm(phi_basis, y, phi_dev, y_dev, 2)
+    phi_dev, y_dev = get_features_basis('dev.csv')
+    w_basis = pnorm(phi_basis, y, phi_dev, y_dev, lr=0.03, lam=1e-4, l=2)
     rmse_basis = compute_RMSE(phi_dev, w_basis, y_dev)
     print('Task 3: basis')
     print(rmse_basis)
