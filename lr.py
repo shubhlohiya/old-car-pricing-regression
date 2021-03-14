@@ -6,6 +6,7 @@ import torch
 # Global variables
 phase = "train"  # phase can be set to either "train" or "eval"
 km_mean, km_std = 73301.4976 , 62777.3637
+km_max, km_min = 2360457, 1000
 power_max, power_min = 400.0 , 0.0
 torque_max, torque_min = 1450.0 , 48.0
 seats_max, seats_min = 14.0 , 4.0
@@ -117,7 +118,7 @@ def get_features(file_path):
     # year_max, year_min = data.year.max(), data.year.min()
 
     # Perform feature scaling
-    data.km_driven = standardize(data.km_driven, km_mean, km_std)
+    data.km_driven = normalize(data.km_driven, km_max, km_min)
     data.max_power = normalize(data.max_power, power_max, power_min)
     data.max_torque = normalize(data.max_torque, torque_max, torque_min)
     data.seats = normalize(data.seats, seats_max, seats_min)
@@ -130,7 +131,8 @@ def get_features(file_path):
 
 def get_features_basis(file_path):
     # Given a file path , return feature matrix and target labels 
-    
+    phi, y = get_features(file_path)
+    phi[:,0:7] = np.exp(phi[:,0:7])
     return phi, y
 
 def compute_RMSE(phi, w , y) :
@@ -149,7 +151,7 @@ def closed_soln(phi, y):
     # Function returns the solution w for Xw=y.
     return np.linalg.pinv(phi).dot(y)
 
-def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03, cap=5e5, bias=False):
+def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.1, cap=5e5, bias=False, verbose=False):
     # Implement gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
@@ -169,8 +171,8 @@ def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03, cap=5e5, bias=False):
     y_prime = y / 1e4
 
     w_prime = w.clone()
-
-    print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+    if verbose:
+        print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
     i,j,v=0,0,np.inf
 
     while j<p:
@@ -187,22 +189,23 @@ def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03, cap=5e5, bias=False):
                 v = v_new
             else:
                 j+=1
-            if i % 1000 ==0:
+            if i % 1000 ==0 and verbose:
                 rmse_tr.append(compute_RMSE(phi, w, y))
                 rmse_dv.append(v_new)
                 print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
         if i >= cap:
             break
 
-    if i < cap:
+    if i < cap and verbose:
         print("Early Stopping .............. Returning best weights")
-    else:
+    elif verbose:
         print(f"Finished {int(cap)} epochs without convergence...... Returning best weights")
-    plt.plot(rmse_tr)
-    plt.plot(rmse_dv)
+    if verbose:
+        plt.plot(rmse_tr)
+        plt.plot(rmse_dv)
     return w_prime
 
-def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1, cap=5e5, bias=False) :
+def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1, cap=1500, bias=False, verbose=False) :
     # Implement stochastic gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
@@ -225,8 +228,8 @@ def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1, cap=5e5, bias=False) :
     y_prime = y / 1e4
 
     w_prime = w.clone()
-
-    print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+    if verbose:
+        print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
     i,j,v=0,0,np.inf
 
     while j<p:
@@ -244,23 +247,24 @@ def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1, cap=5e5, bias=False) :
             v = v_new
         else:
             j+=1
-        # if i % 5 == 0:
-        rmse_tr.append(compute_RMSE(phi, w, y))
-        rmse_dv.append(v_new)
-        print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+        if verbose:
+            rmse_tr.append(compute_RMSE(phi, w, y))
+            rmse_dv.append(v_new)
+            print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
         if i >= cap:
             break
 
-    if i < cap:
+    if i < cap and verbose:
         print("Early Stopping .............. Returning best weights")
-    else:
+    elif verbose:
         print(f"Finished {int(cap)} epochs without convergence...... Returning best weights")
-    plt.plot(rmse_tr)
-    plt.plot(rmse_dv)
+    if verbose:
+        plt.plot(rmse_tr)
+        plt.plot(rmse_dv)
     return w_prime
 
 
-def pnorm(phi, y, phi_dev, y_dev, p=5, lr=0.03, l=2, lam=1, cap=5e5, bias=False) :
+def pnorm(phi, y, phi_dev, y_dev, p=5, lr=0.03, l=2, lam=1, cap=5e5, bias=False, verbose=False) :
     # Implement gradient_descent with p-norm (here, l-norm) regularisation using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
     # Constraint on l: l > 1
@@ -281,8 +285,8 @@ def pnorm(phi, y, phi_dev, y_dev, p=5, lr=0.03, l=2, lam=1, cap=5e5, bias=False)
     y_prime = y / 1e4
 
     w_prime = w.clone()
-
-    print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+    if verbose:
+        print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
     i,j,v=0,0,np.inf
 
     while j<p:
@@ -302,19 +306,20 @@ def pnorm(phi, y, phi_dev, y_dev, p=5, lr=0.03, l=2, lam=1, cap=5e5, bias=False)
                 v = v_new
             else:
                 j+=1
-            if i % 1000 ==0:
+            if i % 1000 ==0 and verbose:
                 rmse_tr.append(compute_RMSE(phi, w, y))
                 rmse_dv.append(v_new)
                 print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
         if i>=cap:
             break
 
-    if i<cap:
+    if i<cap and verbose:
         print("Early Stopping .............. Returning best weights")
-    else:
+    elif verbose:
         print(f"Finished {int(cap)} epochs without convergence...... Returning best weights")
-    plt.plot(rmse_tr)
-    plt.plot(rmse_dv)
+    if verbose:
+        plt.plot(rmse_tr)
+        plt.plot(rmse_dv)
     return w_prime
     
 
