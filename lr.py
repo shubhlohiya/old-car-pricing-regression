@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 # Global variables
 phase = "train"  # phase can be set to either "train" or "eval"
-km_mean, km_std = 73301.4976 , 62777.3637
+km_max, km_min = 2360457, 1000
 power_max, power_min = 400.0 , 0.0
 torque_max, torque_min = 1450.0 , 48.0
 seats_max, seats_min = 14.0 , 4.0
@@ -116,7 +116,7 @@ def get_features(file_path):
     # year_max, year_min = data.year.max(), data.year.min()
 
     # Perform feature scaling
-    data.km_driven = standardize(data.km_driven, km_mean, km_std)
+    data.km_driven = normalize(data.km_driven, km_max, km_min)
     data.max_power = normalize(data.max_power, power_max, power_min)
     data.max_torque = normalize(data.max_torque, torque_max, torque_min)
     data.seats = normalize(data.seats, seats_max, seats_min)
@@ -129,7 +129,8 @@ def get_features(file_path):
 
 def get_features_basis(file_path):
     # Given a file path , return feature matrix and target labels 
-    
+    phi, y = get_features(file_path)
+    phi[:,0:7] = np.exp(phi[:,0:7])
     return phi, y
 
 def compute_RMSE(phi, w , y) :
@@ -150,21 +151,25 @@ def closed_soln(phi, y):
     # Function returns the solution w for Xw=y.
     return np.linalg.pinv(phi).dot(y)
     
-def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03):
+def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.1, cap=5e5, bias=False, verbose=False):
     # Implement gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
     np.random.seed(123)
-    w = np.random.randn(phi.shape[1])
     n = phi.shape[0]
+    if bias:
+        phi = np.append(phi, np.ones((n,1)), axis=1)
+        phi_dev = np.append(phi_dev, np.ones((phi_dev.shape[0],1)), axis=1)
+    w = np.random.randn(phi.shape[1])
     rmse_tr = [compute_RMSE(phi, w, y)]
     rmse_dv = [compute_RMSE(phi_dev, w, y_dev)]
     y_prime = y / 1e4
-    w_prime = w.copy()
 
-    print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+    w_prime = w.copy()
+    if verbose:
+        print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
     i,j,v=0,0,np.inf
-    
+
     while j<p:
         y_hat = phi @ w
         grad = 2 * phi.T @ (y_hat - y_prime) / n
@@ -179,31 +184,44 @@ def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03):
                 v = v_new
             else:
                 j+=1
-            if i % 1000 ==0:
+            if i % 1000 ==0 and verbose:
                 rmse_tr.append(compute_RMSE(phi, w, y))
                 rmse_dv.append(v_new)
                 print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
-    plt.plot(rmse_tr)
-    plt.plot(rmse_dv)
+        if i >= cap:
+            break
+
+    if i < cap and verbose:
+        print("Early Stopping .............. Returning best weights")
+    elif verbose:
+        print(f"Finished {int(cap)} epochs without convergence...... Returning best weights")
+    if verbose:
+        plt.plot(rmse_tr)
+        plt.plot(rmse_dv)
     return w_prime
 
-def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1) :
+def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1, cap=1500, bias=False, verbose=False) :
     # Implement stochastic gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
     np.random.seed(123)
     m = phi.shape[0]
     n = phi.shape[1]
-    w = np.random.randn(n)
-
+    if bias:
+        phi = np.append(phi, np.ones((m,1)), axis=1)
+        phi_dev = np.append(phi_dev, np.ones((phi_dev.shape[0],1)), axis=1)
+        w = np.random.randn(n+1)
+    else:
+        w = np.random.randn(n)
     rmse_tr = [compute_RMSE(phi, w, y)]
     rmse_dv = [compute_RMSE(phi_dev, w, y_dev)]
     y_prime = y / 1e4
-    w_prime = w.copy()
 
-    print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+    w_prime = w.copy()
+    if verbose:
+        print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
     i,j,v=0,0,np.inf
-    
+
     while j<p:
         for k in range(0,m,bs):
             start, end = k*bs, min(m, (k+1)*bs)
@@ -219,40 +237,53 @@ def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1) :
             v = v_new
         else:
             j+=1
-        # if i % 5 == 0:
-        rmse_tr.append(compute_RMSE(phi, w, y))
-        rmse_dv.append(v_new)
-        print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+        if verbose:
+            rmse_tr.append(compute_RMSE(phi, w, y))
+            rmse_dv.append(v_new)
+            print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+        if i >= cap:
+            break
 
-    print("Early Stopping .............. Returning best weights")
-    plt.plot(rmse_tr)
-    plt.plot(rmse_dv)
+    if i < cap and verbose:
+        print("Early Stopping .............. Returning best weights")
+    elif verbose:
+        print(f"Finished {int(cap)} epochs without convergence...... Returning best weights")
+    if verbose:
+        plt.plot(rmse_tr)
+        plt.plot(rmse_dv)
     return w_prime
 
 
-def pnorm(phi, y, phi_dev, y_dev, l=2, lam=1) :
+def pnorm(phi, y, phi_dev, y_dev, p=5, lr=0.03, l=2, lam=1, cap=5e5, bias=False, verbose=False) :
     # Implement gradient_descent with p-norm (here, l-norm) regularisation using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
     # Constraint on l: l > 1
 
     np.random.seed(123)
-    w = np.random.randn(phi.shape[1])
     n = phi.shape[0]
+    if bias:
+        phi = np.append(phi, np.ones((n,1)), axis=1)
+        phi_dev = np.append(phi_dev, np.ones((phi_dev.shape[0],1)), axis=1)
+    w = np.random.randn(phi.shape[1])
     rmse_tr = [compute_RMSE(phi, w, y)]
     rmse_dv = [compute_RMSE(phi_dev, w, y_dev)]
     y_prime = y / 1e4
-    w_prime = w.copy()
 
-    print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+    w_prime = w.copy()
+    if verbose:
+        print(f"Start..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
     i,j,v=0,0,np.inf
-    
+
     while j<p:
         y_hat = phi @ w
-        Wp = np.abs(w)**(l-2)
-        grad = 2*phi.T @ (y_hat - y_prime) / n + lam*l*(Wp*w)
+        r_grad = l*((torch.abs(w)**(l-2))*w)
+        if bias:
+            r_grad[-1] = 0.
+        grad = 2*phi.T @ (y_hat - y_prime) / n + lam*r_grad
         w = w - lr * grad
         i+=1
         if i % 100 == 0:
+
             v_new = compute_RMSE(phi_dev, w, y_dev)
             if v_new < v:
                 j=0
@@ -260,12 +291,20 @@ def pnorm(phi, y, phi_dev, y_dev, l=2, lam=1) :
                 v = v_new
             else:
                 j+=1
-            if i % 1000 ==0:
+            if i % 1000 ==0 and verbose:
                 rmse_tr.append(compute_RMSE(phi, w, y))
                 rmse_dv.append(v_new)
                 print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
-    plt.plot(rmse_tr)
-    plt.plot(rmse_dv)
+        if i>=cap:
+            break
+
+    if i<cap and verbose:
+        print("Early Stopping .............. Returning best weights")
+    elif verbose:
+        print(f"Finished {int(cap)} epochs without convergence...... Returning best weights")
+    if verbose:
+        plt.plot(rmse_tr)
+        plt.plot(rmse_dv)
     return w_prime
 
 
