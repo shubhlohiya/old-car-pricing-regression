@@ -149,7 +149,7 @@ def closed_soln(phi, y):
     # Function returns the solution w for Xw=y.
     return np.linalg.pinv(phi).dot(y)
 
-def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03):
+def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03, cap=5e5):
     # Implement gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
@@ -188,12 +188,18 @@ def gradient_descent(phi, y, phi_dev, y_dev, p=5, lr=0.03):
                 rmse_tr.append(compute_RMSE(phi, w, y))
                 rmse_dv.append(v_new)
                 print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
-    print("Early Stopping .............. Returning best weights")
+        if i >= cap:
+            break
+
+    if i < cap:
+        print("Early Stopping .............. Returning best weights")
+    else:
+        print(f"Finished {int(cap)} epochs without convergence...... Returning best weights")
     plt.plot(rmse_tr)
     plt.plot(rmse_dv)
     return w_prime
 
-def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1) :
+def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1, cap=5e5) :
     # Implement stochastic gradient_descent using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
 
@@ -234,14 +240,19 @@ def sgd(phi, y, phi_dev, y_dev, p=5, lr=0.03, bs=1) :
         rmse_tr.append(compute_RMSE(phi, w, y))
         rmse_dv.append(v_new)
         print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
+        if i >= cap:
+            break
 
-    print("Early Stopping .............. Returning best weights")
+    if i < cap:
+        print("Early Stopping .............. Returning best weights")
+    else:
+        print(f"Finished {int(cap)} epochs without convergence...... Returning best weights")
     plt.plot(rmse_tr)
     plt.plot(rmse_dv)
     return w_prime
 
 
-def pnorm(phi, y, phi_dev, y_dev, l=2, lam=1) :
+def pnorm(phi, y, phi_dev, y_dev, p=5, lr=0.03, l=2, lam=1, cap=5e5) :
     # Implement gradient_descent with p-norm (here, l-norm) regularisation using Mean Squared Error Loss
     # You may choose to use the dev set to determine point of convergence
     # Constraint on l: l > 1
@@ -265,7 +276,7 @@ def pnorm(phi, y, phi_dev, y_dev, l=2, lam=1) :
 
     while j<p:
         y_hat = phi @ w
-        Wp = np.abs(w)**(l-2)
+        Wp = torch.abs(w)**(l-2)
         grad = 2*phi.t() @ (y_hat - y_prime) / n + lam*l*(Wp*w)
         w = w - lr * grad
         i+=1
@@ -282,7 +293,13 @@ def pnorm(phi, y, phi_dev, y_dev, l=2, lam=1) :
                 rmse_tr.append(compute_RMSE(phi, w, y))
                 rmse_dv.append(v_new)
                 print(f"Epoch {i}..............RMSE on train = {rmse_tr[-1]}, RMSE on dev = {rmse_dv[-1]}")
-    print("Early Stopping .............. Returning best weights")
+        if i>=cap:
+            break
+
+    if i<cap:
+        print("Early Stopping .............. Returning best weights")
+    else:
+        print(f"Finished {int(cap)} epochs without convergence...... Returning best weights")
     plt.plot(rmse_tr)
     plt.plot(rmse_dv)
     return w_prime
